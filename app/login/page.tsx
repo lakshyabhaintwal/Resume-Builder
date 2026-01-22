@@ -6,13 +6,17 @@ import { supabase } from "@/lib/supabase";
 export default function Login() {
   const [email, setEmail] = useState("");
 
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOtp({
-      email,
-    });
+const handleLogin = async () => {
+  await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: "http://localhost:3000/builder",
+    },
+  });
 
-    alert("Check your email for login link");
-  };
+  alert("Check your email for login link");
+};
+
 
   return (
     <div className="p-10">
