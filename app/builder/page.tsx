@@ -1,33 +1,89 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function Builder() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Resume form state
+  // Resume fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [education, setEducation] = useState("");
   const [skills, setSkills] = useState("");
 
-  // ✅ Redirect AFTER render
+  const [saving, setSaving] = useState(false);
+
+  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
 
+  // Load resume from DB
+  useEffect(() => {
+    if (user) {
+      loadResume();
+    }
+  }, [user]);
+
+  // Fetch resume
+  const loadResume = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("resumes")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error) {
+      console.log("Load error:", error.message);
+      return;
+    }
+
+    if (data) {
+      setName(data.name || "");
+      setEmail(data.email || "");
+      setEducation(data.education || "");
+      setSkills(data.skills || "");
+    }
+  };
+
+  // Save resume
+  const saveResume = async () => {
+    if (!user) return;
+
+    setSaving(true);
+
+    const { error } = await supabase.from("resumes").upsert({
+      user_id: user.id,
+      name,
+      email,
+      education,
+      skills,
+    });
+
+    setSaving(false);
+
+    if (error) {
+      alert("Save failed: " + error.message);
+    } else {
+      alert("Resume saved!");
+    }
+  };
+
+  // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
-  // Still loading auth
+  // Loading state
   if (loading) {
     return <p className="p-10">Loading...</p>;
   }
@@ -40,7 +96,7 @@ export default function Builder() {
   return (
     <div className="p-10 grid grid-cols-2 gap-10">
 
-      {/* LEFT – FORM */}
+      {/* FORM */}
       <div>
 
         <h1 className="text-2xl font-bold mb-6">
@@ -79,16 +135,28 @@ export default function Builder() {
 
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="mt-6 bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Logout
-        </button>
+        <div className="mt-6 space-x-4">
+
+          <button
+            onClick={saveResume}
+            disabled={saving}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 text-white px-4 py-2 rounded"
+          >
+            Logout
+          </button>
+
+        </div>
 
       </div>
 
-      {/* RIGHT – PREVIEW */}
+      {/* PREVIEW */}
       <div className="border p-6 rounded bg-white shadow text-black">
 
         <h2 className="text-xl font-bold mb-4">
