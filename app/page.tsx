@@ -1,31 +1,95 @@
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-white text-black">
 
-      <h1 className="text-4xl font-bold mb-4" style={{ color: "black" }}>
-        AI Resume Builder
-      </h1>
+      {/* NAVBAR */}
+      <header className="w-full border-b bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
 
-      <p className="text-gray-600 mb-8">
-        Create professional ATS-friendly resumes in minutes
-      </p>
+          {/* Logo */}
+          <h1 className="text-2xl font-bold text-blue-600">
+            AI Resume Builder
+          </h1>
 
-      <div className="space-x-4">
+          {/* Nav Links */}
+          <nav className="hidden md:flex gap-8 text-gray-700 font-medium">
+            <a href="#" className="hover:text-blue-600">
+              Resume Builder
+            </a>
+            <a href="#" className="hover:text-blue-600">
+              Job Tracker
+            </a>
+            <a href="#" className="hover:text-blue-600">
+              Tools
+            </a>
+            <a href="#" className="hover:text-blue-600">
+              Resources
+            </a>
+          </nav>
+
+          {/* Auth Buttons */}
+          <div className="flex gap-3">
+
+            <a
+              href="/login"
+              className="px-4 py-2 border rounded hover:bg-gray-100"
+            >
+              Log in
+            </a>
+
+            <a
+              href="/login"
+              className="px-5 py-2 bg-yellow-400 rounded font-semibold hover:bg-yellow-500"
+            >
+              Sign Up
+            </a>
+
+          </div>
+
+        </div>
+      </header>
+
+
+      {/* HERO */}
+      <section className="max-w-7xl mx-auto px-6 py-20 text-center">
+
+        <h2 className="text-5xl font-extrabold mb-6 leading-tight text-gray-900">
+          Build Your Resume.<br />
+          Land More Interviews.
+        </h2>
+
+        <p className="text-gray-600 text-lg max-w-2xl mx-auto mb-10">
+          Create professional ATS-friendly resumes in minutes
+          and stand out from the crowd.
+        </p>
+
         <a
-          href="/builder"
-          className="bg-blue-600 text-white px-6 py-3 rounded"
-        >
-          Build Resume
-        </a>
-
-        <a 
           href="/login"
-          className="border px-6 py-3 rounded text-black"
+          className="inline-block bg-yellow-400 px-10 py-4 rounded-full text-lg font-semibold hover:bg-yellow-500 transition"
         >
-          Login
+          Get Started for Free
         </a>
-      </div>
 
-    </main>
+      </section>
+
+
+      {/* PREVIEW */}
+      <section className="max-w-7xl mx-auto px-6 pb-24">
+
+        <div className="bg-gray-100 rounded-2xl p-14 text-center text-gray-600 shadow-sm">
+
+          <p className="text-2xl font-semibold mb-2">
+            Resume Preview
+          </p>
+
+          <p className="text-sm">
+            (We’ll add a real preview here soon)
+          </p>
+
+        </div>
+
+      </section>
+
+    </div>
   );
 }
