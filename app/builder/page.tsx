@@ -12,6 +12,7 @@ type Education = {
   school: string;
   degree: string;
   year: string;
+  cgpa: string;
 };
 
 type Experience = {
@@ -29,7 +30,13 @@ type Resume = {
   education: Education[];
   experience: Experience[];
   skills: string;
+  extra:Extra[];
 };
+
+type Extra ={
+  title:string,
+  description:string;
+}
 
 /* ================= DEFAULTS ================= */
 
@@ -37,6 +44,7 @@ const emptyEducation: Education = {
   school: "",
   degree: "",
   year: "",
+  cgpa: "",
 };
 
 const emptyExperience: Experience = {
@@ -46,6 +54,11 @@ const emptyExperience: Experience = {
   end: "",
   description: "",
 };
+const emptyExtra: Extra = {
+  title: "",
+  description: "",
+};
+
 
 const defaultResume: Resume = {
   name: "",
@@ -54,7 +67,10 @@ const defaultResume: Resume = {
   education: [emptyEducation],
   experience: [emptyExperience],
   skills: "",
+  extra:[emptyExtra],
 };
+//button css
+const buttonFormat = "mt-3 inline-block text-blue-600 font-medium cursor-pointer hover:text-indigo-600 hover:underline transition";
 
 /* ================= MAIN ================= */
 
@@ -68,6 +84,9 @@ export default function Builder() {
   const [resume, setResume] = useState<Resume>(defaultResume);
 
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [aiResume, setAiResume] = useState("");
+
   const [loading, setLoading] = useState(true);
 
   /* ================= AUTH ================= */
@@ -110,7 +129,7 @@ export default function Builder() {
       }
 
       if (data?.resume_data) {
-        setResume(data.resume_data);
+        setResume({...defaultResume, ...data.resume_data ,extra: data.resume_data.extra || [emptyExtra]});
       }
     } catch (err) {
       console.error(err);
@@ -157,6 +176,73 @@ export default function Builder() {
   } finally {
     setSaving(false);
   }
+};
+
+  const generateResume = async () => {
+  try {
+    setGenerating(true);
+
+    // Save first
+    await saveResume();
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        resume,
+      }),
+    });
+
+    const data = await res.json();
+
+    console.log("AI RESPONSE:", data);
+
+    if (!res.ok || data.error) {
+      throw new Error(
+        data.error || "AI generation failed"
+      );
+    }
+
+    if (!data.resume) {
+      throw new Error("Empty AI response");
+    }
+
+    // TEMP: show result
+    localStorage.setItem("generated_resume", data.resume);
+    //redirect
+    router.push("/preview");
+
+    if (!data.resume) {
+    throw new Error("Empty AI response");
+    }
+
+  } catch (err: any) {
+
+    console.error("GENERATE ERROR:", err);
+
+    alert(
+      err?.message ||
+      "Something went wrong. Check console."
+    );
+
+  } finally {
+    setGenerating(false);
+  }
+};
+
+
+const addEducation = () => {
+  updateField("education", [...resume.education,{ ...emptyEducation },]);
+};
+
+const addExperience = () => {
+  updateField("experience", [...resume.experience,{ ...emptyExperience },]);
+};
+
+const addExtra = () => {
+  updateField("extra", [...resume.extra,{ ...emptyExtra },]);
 };
 
 
@@ -210,6 +296,7 @@ export default function Builder() {
         <Section title="Summary">
 
           <Textarea
+            placeholder="A brief summary about you"
             value={resume.summary}
             onChange={(v) => updateField("summary", v)}
           />
@@ -222,7 +309,7 @@ export default function Builder() {
 
           {resume.education.map((edu, i) => (
 
-            <div key={i} className="space-y-2">
+            <div key={i} className="space-y-3 p-4 border rounded-lg bg-gray-50">
 
               <Input
                 placeholder="School"
@@ -253,9 +340,20 @@ export default function Builder() {
                   updateField("education", arr);
                 }}
               />
+              <Input
+                placeholder="CGPA"
+                value={edu.cgpa}
+                onChange={(v) => {
+                  const arr = [...resume.education];
+                  arr[i].cgpa = v;
+                  updateField("education", arr);
+                }}
+              />
 
             </div>
           ))}
+
+          <button onClick={addEducation} className={buttonFormat}> + Add Education</button>
 
         </Section>
 
@@ -288,6 +386,7 @@ export default function Builder() {
               />
 
               <Textarea
+                placeholder="Description"
                 value={exp.description}
                 onChange={(v) => {
                   const arr = [...resume.experience];
@@ -298,6 +397,7 @@ export default function Builder() {
 
             </div>
           ))}
+          <button onClick={addExperience} className={buttonFormat}> + Add Experience</button>
 
         </Section>
 
@@ -313,9 +413,39 @@ export default function Builder() {
 
         </Section>
 
-        {/* SAVE */}
+        {/* EXTRA CO CIRRICULAR*/}
+        <Section title="Extra Curricular">
+          {resume.extra.map((extra, i) => (
+            <div
+              key ={i}
+              className = "bg-white p-6 rounded-xl shadow-md space-y-4 border border-gray-200"
+              >
+                <Input
+                  placeholder="Activity / Club / Achievement"
+                  value={extra.title}
+                  onChange={(v) => { 
+                    const arr = [...resume.extra];
+                    arr[i].title = v;
+                    updateField("extra", arr);
+                  }}
+                />
+                <Textarea
+                  placeholder="Description"
+                  value ={extra.description}
+                  onChange={(v) => {
+                    const arr = [...resume.extra];
+                    arr[i].description = v;
+                    updateField("extra", arr);
+                  }}
+                />
+                </div>
+          ))}
+          <button onClick={addExtra} className={buttonFormat}> + Add Extra Curricular</button>
+        </Section>
 
-        <div className="text-center">
+        {/* SAVE && generating */}
+
+        <div className="text-center space-x-4">
 
           <button
             onClick={saveResume}
@@ -325,7 +455,20 @@ export default function Builder() {
             {saving ? "Saving..." : "Save"}
           </button>
 
+          <button 
+            onClick={generateResume}
+            disabled={generating}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+            {generating ? "Generating..." : "Generate with AI"}
+          </button>
+
         </div>
+        {/* AI RESUME PREVIEW */}
+        {aiResume && 
+        (<div className="mt-10 bg-white p-6 rounded-xl shadow border">
+          <h2 className="text-2xl font-semibold mb-4">AI-Generated Resume</h2>
+          <pre className="whitespace-pre-wrap text-gray-800">{aiResume}</pre>
+        </div>)}
 
       </div>
 
@@ -343,9 +486,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white p-6 rounded shadow space-y-4">
+    <div className="bg-white p-6 rounded-xl shadow-md space-y-4 border border-gray-200 text-gray-800">
 
-      <h2 className="text-xl font-semibold">
+      <h2 className="text-xl font-semibold text-gray-900">
         {title}
       </h2>
 
@@ -366,8 +509,11 @@ function Input({
 }) {
   return (
     <input
-      className="w-full border p-2 rounded"
-      value={value}
+      className="w-full border border-gray-300 p-2 rounded-lg
+           text-gray-900 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500
+           transition"
+      value={value || ""}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -377,15 +523,21 @@ function Input({
 function Textarea({
   value,
   onChange,
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <textarea
-      className="w-full border p-2 rounded"
+      className="w-full border border-gray-300 p-2 rounded-lg
+           text-gray-900 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500
+           transition"
       rows={4}
-      value={value}
+      value={value || ""}
+      placeholder = {placeholder}
       onChange={(e) => onChange(e.target.value)}
     />
   );
