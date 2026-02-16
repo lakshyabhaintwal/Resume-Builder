@@ -11,7 +11,8 @@ import { createSupabaseClient } from "@/lib/supabase";
 type Education = {
   school: string;
   degree: string;
-  year: string;
+  start: string;
+  end: string;
   cgpa: string;
 };
 
@@ -26,9 +27,13 @@ type Experience = {
 type Resume = {
   name: string;
   email: string;
+  phone: string;
+  LinkedIn: string;
+  GitHub: string;
   summary: string;
   education: Education[];
   experience: Experience[];
+  projects: Project[];
   skills: string;
   extra:Extra[];
 };
@@ -37,13 +42,21 @@ type Extra ={
   title:string,
   description:string;
 }
+type Project = {
+  name:string;
+  techStack:string;
+  start:string;
+  end:string;
+  description:string;
+}
 
 /* ================= DEFAULTS ================= */
 
 const emptyEducation: Education = {
   school: "",
   degree: "",
-  year: "",
+  start: "",
+  end: "",
   cgpa: "",
 };
 
@@ -59,13 +72,26 @@ const emptyExtra: Extra = {
   description: "",
 };
 
+const emptyProject: Project = {
+  name: "",
+  techStack: "",
+  start: "",
+  end: "",
+  description: "",
+};
+
+
 
 const defaultResume: Resume = {
   name: "",
   email: "",
+  phone : "",
+  LinkedIn: "",
+  GitHub: "",
   summary: "",
   education: [emptyEducation],
   experience: [emptyExperience],
+  projects: [emptyProject],
   skills: "",
   extra:[emptyExtra],
 };
@@ -129,7 +155,12 @@ export default function Builder() {
       }
 
       if (data?.resume_data) {
-        setResume({...defaultResume, ...data.resume_data ,extra: data.resume_data.extra || [emptyExtra]});
+        setResume({
+          ...defaultResume,
+          ...data.resume_data,
+          extra: data.resume_data.extra || [emptyExtra],
+          projects: data.resume_data.projects || [emptyProject],
+        });
       }
     } catch (err) {
       console.error(err);
@@ -256,6 +287,11 @@ const addExtra = () => {
     setResume({ ...resume, [key]: value });
   };
 
+  const addProject = () => {
+  updateField("projects", [...resume.projects, { ...emptyProject }]);
+};
+
+
   /* ================= LOADING ================= */
 
   if (!user || loading) {
@@ -287,6 +323,21 @@ const addExtra = () => {
             placeholder="Email"
             value={resume.email}
             onChange={(v) => updateField("email", v)}
+          />
+          <Input
+            placeholder = "Phone Number"
+            value={resume.phone}
+            onChange={(v) => updateField("phone", v)}
+          />
+          <Input
+            placeholder = "LinkedIn URL"
+            value={resume.LinkedIn}
+            onChange={(v) => updateField("LinkedIn", v)}
+          />
+          <Input
+            placeholder = "GitHub URL"
+            value={resume.GitHub}
+            onChange={(v) => updateField("GitHub", v)}
           />
 
         </Section>
@@ -332,11 +383,20 @@ const addExtra = () => {
               />
 
               <Input
-                placeholder="Year"
-                value={edu.year}
+                placeholder="Start Year"
+                value={edu.start}
                 onChange={(v) => {
                   const arr = [...resume.education];
-                  arr[i].year = v;
+                  arr[i].start = v;
+                  updateField("education", arr);
+                }}
+              />
+              <Input
+                placeholder="End Year"
+                value={edu.end}
+                onChange={(v) => {
+                  const arr = [...resume.education];
+                  arr[i].end = v;
                   updateField("education", arr);
                 }}
               />
@@ -374,6 +434,24 @@ const addExtra = () => {
                   updateField("experience", arr);
                 }}
               />
+              <Input
+                placeholder="Start Year"
+                value={exp.start}
+                onChange={(v) => {
+                  const arr = [...resume.experience];
+                  arr[i].start = v;
+                  updateField("experience", arr);
+                }}
+              />
+              <Input
+                placeholder="End Year"
+                value={exp.end}
+                onChange={(v) => {
+                  const arr = [...resume.experience];
+                  arr[i].end = v;
+                  updateField("experience", arr);
+                }}
+              />
 
               <Input
                 placeholder="Role"
@@ -399,6 +477,69 @@ const addExtra = () => {
           ))}
           <button onClick={addExperience} className={buttonFormat}> + Add Experience</button>
 
+        </Section>
+        {/* PROJECTS */}
+
+        <Section title="Projects">
+          {resume.projects.map((proj, i) => (
+            <div key={i} className="space-y-3 p-4 border rounded-lg bg-gray-50">
+
+              <Input
+                placeholder="Project Name"
+                value={proj.name}
+                onChange={(v) => {
+                  const arr = [...resume.projects];
+                  arr[i].name = v;
+                  updateField("projects", arr);
+                }}
+              />
+
+              <Input
+                placeholder="Tech Stack (React, Node, MongoDB...)"
+                value={proj.techStack}
+                onChange={(v) => {
+                  const arr = [...resume.projects];
+                  arr[i].techStack = v;
+                  updateField("projects", arr);
+                }}
+              />
+
+              <Input
+                placeholder="Start"
+                value={proj.start}
+                onChange={(v) => {
+                  const arr = [...resume.projects];
+                  arr[i].start = v;
+                  updateField("projects", arr);
+                }}
+              />
+
+              <Input
+                placeholder="End"
+                value={proj.end}
+                onChange={(v) => {
+                  const arr = [...resume.projects];
+                  arr[i].end = v;
+                  updateField("projects", arr);
+                }}
+              />
+
+              <Textarea
+                placeholder="What did you build? Impact? Features?"
+                value={proj.description}
+                onChange={(v) => {
+                  const arr = [...resume.projects];
+                  arr[i].description = v;
+                  updateField("projects", arr);
+                }}
+              />
+
+            </div>
+          ))}
+
+          <button onClick={addProject} className={buttonFormat}>
+            + Add Project
+          </button>
         </Section>
 
         {/* SKILLS */}

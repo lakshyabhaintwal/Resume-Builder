@@ -71,6 +71,45 @@ function withSafeDefaults(data: any) {
   };
 }
 
+function formatDateRange(start?: string, end?: string) {
+  if (!start && !end) return "";
+  if (start && end) return `${start} -- ${end}`;
+  return start || end || "";
+}
+
+function normalizeResumeForAI(resume: any) {
+  return {
+    ...resume,
+
+    education: (resume.education || []).map((e: any) => ({
+      school: e.school,
+      location: "",
+      degree: e.degree,
+      dates: formatDateRange(e.start, e.end),
+    })),
+
+    experience: (resume.experience || []).map((exp: any) => ({
+      title: exp.role,
+      company: exp.company,
+      location: "",
+      dates: formatDateRange(exp.start, exp.end),
+      points: exp.description
+        ? [exp.description]
+        : [],
+    })),
+
+    projects: (resume.projects || []).map((proj: any) => ({
+      name: proj.name,
+      tech: proj.techStack,
+      dates: formatDateRange(proj.start, proj.end),
+      points: proj.description
+        ? [proj.description]
+        : [],
+    })),
+  };
+}
+
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -82,7 +121,9 @@ export async function POST(req: Request) {
     }
 
     const targetRole = body?.role || "general";
-    const prompt = buildResumePrompt(body.resume, targetRole);
+    const normalizedResume = normalizeResumeForAI(body.resume);
+    const prompt = buildResumePrompt(normalizedResume, targetRole);
+
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
