@@ -2,15 +2,34 @@ import { SYSTEM_RULES } from "./systemRules";
 import { CONTENT_RULES } from "./contentRules";
 import { SECTION_RULES } from "./sectionRules";
 
-export function buildResumePrompt(data: any, role: string = "general") {
+export function buildResumePrompt(
+  data: any,
+  role: string = "general",
+  jobDescription: string = ""
+) {
   return `
 ${SYSTEM_RULES}
 
 TARGET ROLE: ${role}
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📄 JOB DESCRIPTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${jobDescription || "Not provided"}
+
 ${CONTENT_RULES}
 
 ${SECTION_RULES}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 JOB MATCHING RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Extract important keywords from the job description
+• Align resume content with job requirements
+• Prioritize relevant skills, projects, and experience
+• Use similar terminology as the job description
+• Ensure ATS keyword matching
+• If job description is empty, fall back to general optimization
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎯 OPTIMIZATION GOALS
@@ -47,13 +66,15 @@ LEADERSHIP RULES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 YOUR TASK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Optimize the following resume for a ${role} role.
+Optimize the following resume specifically for the provided JOB DESCRIPTION.
 
-You MUST:
-• Keep the same JSON structure
-• Improve content quality
-• Remove weak or irrelevant content
-• Keep ALL sections even if empty
+If a job description is provided:
+• Tailor the resume to match it closely
+• Emphasize relevant experience and skills
+• De-emphasize unrelated content BUT still keep and reframe it to align as much as possible with the job description
+
+If no job description is provided:
+• Perform general resume optimization
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📦 USER RESUME DATA
@@ -120,5 +141,12 @@ Return ONLY the JSON object.
 No markdown.
 No explanations.
 No code blocks.
+
+CRITICAL ADAPTATION RULES:
+• NEVER remove entire sections even if not directly relevant
+• If experience does not directly match the job, REFRAME it to highlight transferable skills
+• Emphasize relevant aspects of projects instead of removing them
+• Always produce a COMPLETE, strong one-page resume
+• Do NOT leave sections empty
 `;
 }

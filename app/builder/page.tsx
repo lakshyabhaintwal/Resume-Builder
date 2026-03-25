@@ -52,33 +52,34 @@ type Project = {
 
 /* ================= DEFAULTS ================= */
 
-const emptyEducation: Education = {
+const createEmptyEducation = (): Education => ({
   school: "",
   degree: "",
   start: "",
   end: "",
   cgpa: "",
-};
+});
 
-const emptyExperience: Experience = {
+const createEmptyExperience = (): Experience => ({
   company: "",
   role: "",
   start: "",
   end: "",
   description: "",
-};
-const emptyExtra: Extra = {
+});
+
+const createEmptyExtra = (): Extra => ({
   title: "",
   description: "",
-};
+});
 
-const emptyProject: Project = {
+const createEmptyProject = (): Project => ({
   name: "",
   techStack: "",
   start: "",
   end: "",
   description: "",
-};
+});
 
 
 
@@ -89,11 +90,11 @@ const defaultResume: Resume = {
   LinkedIn: "",
   GitHub: "",
   summary: "",
-  education: [emptyEducation],
-  experience: [emptyExperience],
-  projects: [emptyProject],
+  education: [createEmptyEducation()],
+  experience: [createEmptyExperience()],
+  projects: [createEmptyProject()],
   skills: "",
-  extra:[emptyExtra],
+  extra:[createEmptyExtra()],
 };
 //button css
 const buttonFormat = "mt-3 inline-block text-blue-600 font-medium cursor-pointer hover:text-indigo-600 hover:underline transition";
@@ -114,6 +115,7 @@ export default function Builder() {
   const [aiResume, setAiResume] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [jobDescription , setJobDescription] = useState("");
 
   /* ================= AUTH ================= */
 
@@ -158,8 +160,8 @@ export default function Builder() {
         setResume({
           ...defaultResume,
           ...data.resume_data,
-          extra: data.resume_data.extra || [emptyExtra],
-          projects: data.resume_data.projects || [emptyProject],
+          extra: data.resume_data.extra || [createEmptyExtra()],
+          projects: data.resume_data.projects || [createEmptyProject()],
         });
       }
     } catch (err) {
@@ -168,6 +170,7 @@ export default function Builder() {
       setLoading(false);
     }
   };
+
 
   /* ================= SAVE ================= */
 
@@ -223,6 +226,7 @@ export default function Builder() {
       },
       body: JSON.stringify({
         resume,
+        jobDescription,
       }),
     });
 
@@ -265,15 +269,18 @@ export default function Builder() {
 
 
 const addEducation = () => {
-  updateField("education", [...resume.education,{ ...emptyEducation },]);
+  updateField("education", [...resume.education, createEmptyEducation()]);
 };
 
 const addExperience = () => {
-  updateField("experience", [...resume.experience,{ ...emptyExperience },]);
+  updateField("experience", [...resume.experience, createEmptyExperience()]);
 };
 
 const addExtra = () => {
-  updateField("extra", [...resume.extra,{ ...emptyExtra },]);
+  updateField("extra", [...resume.extra, createEmptyExtra()]);
+};
+const addProject = () => {
+  updateField("projects", [...resume.projects, createEmptyProject()]);
 };
 
 
@@ -286,10 +293,6 @@ const addExtra = () => {
   ) => {
     setResume({ ...resume, [key]: value });
   };
-
-  const addProject = () => {
-  updateField("projects", [...resume.projects, { ...emptyProject }]);
-};
 
 
   /* ================= LOADING ================= */
@@ -305,7 +308,7 @@ const addExtra = () => {
 
       <div className="max-w-4xl mx-auto space-y-8">
 
-        <h1 className="text-4xl font-bold text-center">
+        <h1 className="text-4xl font-bold text-center text-gray-700">
           Resume Builder
         </h1>
 
@@ -582,6 +585,14 @@ const addExtra = () => {
                 </div>
           ))}
           <button onClick={addExtra} className={buttonFormat}> + Add Extra Curricular</button>
+        </Section>
+
+        <Section title="Job Description (for targeted resume generation)">
+        <Textarea
+          placeholder="Paste the job description here. The AI will tailor your resume specifically for this role."
+          value={jobDescription}
+          onChange={(v) => setJobDescription(v)}
+        />
         </Section>
 
         {/* SAVE && generating */}

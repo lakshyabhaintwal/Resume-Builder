@@ -6,9 +6,8 @@ import { latexTemplate } from "@/lib/latexTemplate";
 export const runtime = "nodejs";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-/**
- * Escapes special LaTeX characters to prevent compilation errors
- */
+/* ================= UTIL ================= */
+
 function escapeLatex(text: string): string {
   if (!text) return "";
   return String(text)
@@ -28,29 +27,17 @@ function escapeLatex(text: string): string {
     .replace(/\"/g, "''");
 }
 
-/**
- * Recursively escapes all strings in an object for LaTeX safety
- */
 function escapeObjectForLatex(obj: any): any {
-  if (typeof obj === "string") {
-    return escapeLatex(obj);
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(item => escapeObjectForLatex(item));
-  }
-  if (obj !== null && typeof obj === "object") {
-    const escaped: any = {};
-    for (const key in obj) {
-      escaped[key] = escapeObjectForLatex(obj[key]);
-    }
-    return escaped;
+  if (typeof obj === "string") return escapeLatex(obj);
+  if (Array.isArray(obj)) return obj.map(escapeObjectForLatex);
+  if (obj && typeof obj === "object") {
+    const res: any = {};
+    for (const key in obj) res[key] = escapeObjectForLatex(obj[key]);
+    return res;
   }
   return obj;
 }
 
-/**
- * Hard safety shape — prevents ALL undefined crashes
- */
 function withSafeDefaults(data: any) {
   return {
     name: data?.name || "",
@@ -58,10 +45,10 @@ function withSafeDefaults(data: any) {
     phone: data?.phone || "",
     linkedin: data?.linkedin || "",
     github: data?.github || "",
-    education: Array.isArray(data?.education) ? data.education : [],
-    experience: Array.isArray(data?.experience) ? data.experience : [],
-    projects: Array.isArray(data?.projects) ? data.projects : [],
-    leadership: Array.isArray(data?.leadership) ? data.leadership : [],
+    education: data?.education || [],
+    experience: data?.experience || [],
+    projects: data?.projects || [],
+    leadership: data?.leadership || [],
     skills: {
       languages: data?.skills?.languages || "",
       frameworks: data?.skills?.frameworks || "",
@@ -80,39 +67,34 @@ function formatDateRange(start?: string, end?: string) {
 function normalizeResumeForAI(resume: any) {
   return {
     ...resume,
-
     education: (resume.education || []).map((e: any) => ({
       school: e.school,
       location: "",
       degree: e.degree,
       dates: formatDateRange(e.start, e.end),
     })),
-
     experience: (resume.experience || []).map((exp: any) => ({
       title: exp.role,
       company: exp.company,
       location: "",
       dates: formatDateRange(exp.start, exp.end),
-      points: exp.description
-        ? [exp.description]
-        : [],
+      points: exp.description ? [exp.description] : [],
     })),
-
     projects: (resume.projects || []).map((proj: any) => ({
       name: proj.name,
       tech: proj.techStack,
       dates: formatDateRange(proj.start, proj.end),
-      points: proj.description
-        ? [proj.description]
-        : [],
+      points: proj.description ? [proj.description] : [],
     })),
   };
 }
 
+/* ================= MAIN ================= */
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
     if (!body?.resume) {
       return NextResponse.json(
         { error: "No resume data provided" },
@@ -120,133 +102,102 @@ export async function POST(req: Request) {
       );
     }
 
+    const jobDescription = body?.jobDescription || "";
     const targetRole = body?.role || "general";
-    const normalizedResume = normalizeResumeForAI(body.resume);
-    const prompt = buildResumePrompt(normalizedResume, targetRole);
 
+    console.log("🔥 JD:", jobDescription);
+
+    const normalizedResume = normalizeResumeForAI(body.resume);
+
+    const prompt = buildResumePrompt(
+      normalizedResume,
+      targetRole,
+      jobDescription
+    );
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: `You are a resume content optimizer.
-CRITICAL:
-1. Return ONLY valid JSON - no markdown, explanations, or code blocks
-2. JSON must match this exact structure
-3. Never return LaTeX
-4. Include all fields, even if empty
+      systemInstruction: `You are a STRICT JSON generator.
 
-JSON STRUCTURE:
-{
-  "name": "string",
-  "email": "string",
-  "phone": "string",
-  "linkedin": "string (URL or empty)",
-  "github": "string (URL or empty)",
-  "education": [
-    {
-      "school": "string",
-      "location": "string",
-      "degree": "string",
-      "dates": "string"
-    }
-  ],
-  "experience": [
-    {
-      "title": "string",
-      "company": "string",
-      "location": "string",
-      "dates": "string",
-      "points": ["string", "string", ...]
-    }
-  ],
-  "projects": [
-    {
-      "name": "string",
-      "tech": "string",
-      "dates": "string",
-      "points": ["string", ...]
-    }
-  ],
-  "skills": {
-    "languages": "string (comma-separated)",
-    "frameworks": "string (comma-separated)",
-    "tools": "string (comma-separated)",
-    "libraries": "string (comma-separated)"
-  },
-  "leadership": [
-    {
-      "title": "string",
-      "organization": "string",
-      "dates": "string",
-      "points": ["string", ...]
-    }
-  ]
-}
-
-Rules:
-- Keep all content concise for ONE page
-- Bullet points must be short and ATS optimized
-- Maximum 3 bullets per experience entry
-- Maximum 2 bullets per project entry
-- Never add or remove fields`,
+RULES:
+- Output ONLY valid JSON
+- NO explanation
+- NO markdown
+- JSON must start with { and end with }
+- Never break JSON format`,
     });
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        topP: 0.9,
-        topK: 40,
-        maxOutputTokens: 4096, // ✅ CRITICAL: Forces full completion
-      },
-    });
+    /* ================= GENERATE ================= */
 
-    let text = result.response.text();
+    const generate = async () => {
+      const res = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096,
+        },
+      });
+
+      return res.response.text();
+    };
+
+    let text = await generate();
 
     if (!text) {
       return NextResponse.json(
-        { error: "Empty response from Gemini" },
+        { error: "Empty AI response" },
         { status: 500 }
       );
     }
 
-    // Remove markdown code blocks
-    text = text
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
+    /* ================= CLEAN JSON ================= */
 
-    // Parse JSON safely
+    const extractJSON = (raw: string) => {
+      const first = raw.indexOf("{");
+      const last = raw.lastIndexOf("}");
+      if (first !== -1 && last !== -1) {
+        return raw.substring(first, last + 1);
+      }
+      return raw;
+    };
+
+    text = extractJSON(text);
+
     let parsed;
+
     try {
       parsed = JSON.parse(text);
     } catch (err) {
-      console.error("❌ JSON PARSE ERROR:", err);
-      console.error("❌ RAW RESPONSE (first 500 chars):", text.substring(0, 500));
-      return NextResponse.json(
-        {
-          error: "Gemini returned invalid JSON",
-          raw: text.substring(0, 200),
-        },
-        { status: 500 }
-      );
+      console.warn("⚠️ First parse failed, retrying...");
+
+      const retryText = extractJSON(await generate());
+
+      try {
+        parsed = JSON.parse(retryText);
+      } catch (err2) {
+        console.error("❌ FINAL JSON FAILURE");
+        console.error("RAW:", retryText.substring(0, 500));
+
+        return NextResponse.json(
+          { error: "AI returned invalid JSON" },
+          { status: 500 }
+        );
+      }
     }
 
-    // Apply safe defaults to ensure structure
-    let safeData = withSafeDefaults(parsed);
+    /* ================= FINAL ================= */
 
-    // ✅ CRITICAL: Escape all strings for LaTeX safety
+    let safeData = withSafeDefaults(parsed);
     safeData = escapeObjectForLatex(safeData);
 
-    // Generate LaTeX with escaped data
     const finalLatex = latexTemplate(safeData);
 
     return NextResponse.json({ resume: finalLatex });
+
   } catch (error: any) {
-    console.error("❌ GEMINI ROUTE ERROR:", error);
+    console.error("❌ API ERROR:", error);
     return NextResponse.json(
-      {
-        error: error?.message || "Failed to generate resume",
-      },
+      { error: error?.message || "Failed to generate resume" },
       { status: 500 }
     );
   }
