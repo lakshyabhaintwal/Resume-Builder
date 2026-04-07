@@ -93,6 +93,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
 
           {/* LOGGED OUT */}
+
           {!isSignedIn && (
             <>
               <Link
@@ -129,7 +130,6 @@ export default function Navbar() {
             </>
           )}
 
-          {/* LOGGED IN */}
           {isSignedIn && (
             <>
               {/* Greeting */}
@@ -145,7 +145,6 @@ export default function Navbar() {
 
               </div>
 
-              {/* Dashboard Button */}
               <Link
                 href="/builder"
                 className="
@@ -167,9 +166,7 @@ export default function Navbar() {
               <UserButton afterSignOutUrl="/" />
             </>
           )}
-
         </div>
-
       </div>
     </header>
   );

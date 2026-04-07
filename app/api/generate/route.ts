@@ -102,8 +102,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const jobDescription = body?.jobDescription || "";
-    const targetRole = body?.role || "general";
+    const mode = body?.mode || "general";
+    const jobDescription = mode === "jd" ? body?.jobDescription || "" : "";
+    const targetRole = mode === "role" ? body?.role || "general" : "general";
 
     console.log("🔥 JD:", jobDescription);
 

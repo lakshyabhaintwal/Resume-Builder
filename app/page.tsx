@@ -52,7 +52,7 @@ export default function Home() {
           </p>
 
           <p className="text-sm">
-            (We’ll add a real preview here soon)
+            (Weâ€™ll add a real preview here soon)
           </p>
 
         </div>

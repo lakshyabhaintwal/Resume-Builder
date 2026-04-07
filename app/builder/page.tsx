@@ -105,7 +105,7 @@ export default function Builder() {
   console.log("BUILDER COMPONENT LOADED");
 
   const { user } = useUser();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
 
   const [resume, setResume] = useState<Resume>(defaultResume);
@@ -116,6 +116,10 @@ export default function Builder() {
 
   const [loading, setLoading] = useState(true);
   const [jobDescription , setJobDescription] = useState("");
+  const [mode, setMode] = useState<"general" | "jd" | "role">("general");
+  const [role, setRole] = useState("");
+
+
 
   /* ================= AUTH ================= */
 
@@ -128,16 +132,24 @@ export default function Builder() {
   /* ================= LOAD ================= */
 
   useEffect(() => {
-    if (user) {
+    if (user && isAuthLoaded) {
       loadResume();
     }
-  }, [user]);
+  }, [user, isAuthLoaded]);
 
   const getSupabase = async () => {
-    const token = await getToken({ template: "supabase" });
-    console.log("TOKEN:", token);
+    if (!isAuthLoaded) {
+      const error = new Error("Clerk auth is not loaded yet");
+      console.error("FULL ERROR:", JSON.stringify(error, null, 2));
+      throw error;
+    }
 
-    if (!token) throw new Error("No token");
+    const token = await getToken({ template: "supabase" });
+    console.log("SUPABASE TOKEN:", token);
+
+    if (!token) {
+      throw new Error("Missing Clerk Supabase token");
+    }
 
     return createSupabaseClient(token);
   };
@@ -153,7 +165,7 @@ export default function Builder() {
         .maybeSingle();
 
       if (error) {
-        console.error("Load error:", error);
+        console.error("FULL ERROR:", JSON.stringify(error, null, 2));
       }
 
       if (data?.resume_data) {
@@ -165,7 +177,7 @@ export default function Builder() {
         });
       }
     } catch (err) {
-      console.error(err);
+      console.error("FULL ERROR:", JSON.stringify(err, null, 2));
     } finally {
       setLoading(false);
     }
@@ -198,14 +210,14 @@ export default function Builder() {
       );
 
     if (error) {
-      console.error("DB ERROR:", error);
+      console.error("FULL ERROR:", JSON.stringify(error, null, 2));
       alert("Save failed: " + error.message);
     } else {
       alert("Saved successfully!");
     }
 
   } catch (err: any) {
-    console.error("SAVE ERROR:", err);
+    console.error("FULL ERROR:", JSON.stringify(err, null, 2));
     alert("Save failed: " + err.message);
   } finally {
     setSaving(false);
@@ -218,6 +230,17 @@ export default function Builder() {
 
     // Save first
     await saveResume();
+    if(mode == "jd" && !jobDescription.trim()){
+      alert("Please enter a job description for tailoring.");
+      setGenerating(false);
+      return;
+    }
+
+    if (mode === "role" && !role.trim()) {
+      alert("Please enter a role for tailoring.");
+      setGenerating(false);
+      return;
+    }
 
     const res = await fetch("/api/generate", {
       method: "POST",
@@ -226,7 +249,9 @@ export default function Builder() {
       },
       body: JSON.stringify({
         resume,
-        jobDescription,
+        jobDescription:mode== "jd" ? jobDescription : null,
+        role: mode === "role" ? role : null,
+        mode,
       }),
     });
 
@@ -248,10 +273,6 @@ export default function Builder() {
     localStorage.setItem("generated_resume", data.resume);
     //redirect
     router.push("/preview");
-
-    if (!data.resume) {
-    throw new Error("Empty AI response");
-    }
 
   } catch (err: any) {
 
@@ -587,12 +608,35 @@ const addProject = () => {
           <button onClick={addExtra} className={buttonFormat}> + Add Extra Curricular</button>
         </Section>
 
-        <Section title="Job Description (for targeted resume generation)">
-        <Textarea
-          placeholder="Paste the job description here. The AI will tailor your resume specifically for this role."
-          value={jobDescription}
-          onChange={(v) => setJobDescription(v)}
-        />
+        {/*Resume Generationn and Job Description*/}
+        <Section title="Resume Generation Mode">
+
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "general" | "jd" | "role")}
+            className="w-full border p-2 rounded"
+          >
+            <option value="general">General Resume</option>
+            <option value="role">Role-based Resume</option>
+            <option value="jd">Tailor to Job Description</option>
+          </select>
+
+          {mode === "role" && (
+            <Input
+              placeholder="Enter role (e.g., SDE, ML Engineer)"
+              value={role}
+              onChange={setRole}
+            />
+          )}
+
+          {mode === "jd" && (
+            <Textarea
+              placeholder="Paste job description..."
+              value={jobDescription}
+              onChange={(v) => setJobDescription(v)}
+            />
+          )}
+
         </Section>
 
         {/* SAVE && generating */}
