@@ -230,7 +230,7 @@ export default function Builder() {
 
     // Save first
     await saveResume();
-    if(mode == "jd" && !jobDescription.trim()){
+    if(mode === "jd" && !jobDescription.trim()){
       alert("Please enter a job description for tailoring.");
       setGenerating(false);
       return;
@@ -249,8 +249,13 @@ export default function Builder() {
       },
       body: JSON.stringify({
         resume,
-        jobDescription:mode== "jd" ? jobDescription : null,
-        role: mode === "role" ? role : null,
+        ...(mode === "jd" && {
+          jobDescription,
+          role,
+        }),
+        ...(mode === "role" && {
+          role,
+        }),
         mode,
       }),
     });
@@ -264,13 +269,14 @@ export default function Builder() {
         data.error || "AI generation failed"
       );
     }
+    const latex = data?.data?.resume;
 
-    if (!data.resume) {
+    if (!latex) {
       throw new Error("Empty AI response");
     }
 
     // TEMP: show result
-    localStorage.setItem("generated_resume", data.resume);
+    localStorage.setItem("generated_resume", latex);
     //redirect
     router.push("/preview");
 

@@ -9,14 +9,23 @@ export const runtime = "nodejs";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 //ZOD for  sanity check 
-const schema = z.object({
-  resume: z.object({}).passthrough(),
-  mode: z.enum(["general","jd","role"]).optional(),
-  jobDescription: z.string().optional(),
-  role: z.string().optional(),
-
-})
-
+const schema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("general"),
+    resume: z.any(),
+  }),
+  z.object({
+    mode: z.literal("jd"),
+    jobDescription: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
+    resume: z.any(),
+  }),
+  z.object({
+    mode: z.literal("role"),
+    role: z.string().nullable().optional(),
+    resume: z.any(),
+  }),
+]);
 //Rate Limiting 
 const rateLimitMap = new Map<string, {count:number, timestamp:number}>();
 
@@ -147,23 +156,33 @@ export async function POST(req: Request) {
     const parsedBody = schema.safeParse(body);
 
     if (!parsedBody.success) {
+      console.error("❌ ZOD ERROR:", parsedBody.error);
+
       return new Response(
         JSON.stringify({
           success: false,
           error: "Invalid request body",
+          details: parsedBody.error,
         }),
         { status: 400 }
       );
     }
 
+
     // ✅ USE VALIDATED DATA ONLY
     const data = parsedBody.data;
 
-    const mode = data.mode || "general";
-    const jobDescription =
-      mode === "jd" ? data.jobDescription || "" : "";
-    const targetRole =
-      mode === "role" ? data.role || "general" : "general";
+    const mode = data.mode;
+
+    let jobDescription = "";
+    let targetRole = "general";
+
+    if (mode === "jd") {
+      jobDescription = data.jobDescription ?? "";
+      targetRole = data.role ?? "general";
+    } else if (mode === "role") {
+      targetRole = data.role ?? "general";
+    }
 
     console.log("🔥 JD:", jobDescription);
 

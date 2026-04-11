@@ -28,8 +28,10 @@ export default function GeneratedPage() {
   }, []);
 
   // Recompile button
+  const[compileKey , setCompileKey] = useState(0);
   const handleRecompile = () => {
     setCompiledLatex(latex);
+    setCompileKey((prev) => prev + 1);
   };
 
   return (
@@ -91,6 +93,7 @@ export default function GeneratedPage() {
 
             {compiledLatex ? (
               <iframe
+                key ={compileKey} // Force reload on recompile
                 title="PDF Preview"
                 className="w-[210mm] h-[297mm] bg-white shadow-2xl"
                 src={`https://latexonline.cc/compile?text=${encodeURIComponent(
