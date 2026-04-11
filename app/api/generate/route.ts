@@ -2,9 +2,43 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildResumePrompt } from "@/lib/prompts/buildPrompt";
 import { latexTemplate } from "@/lib/latexTemplate";
+import { error } from "console";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+//ZOD for  sanity check 
+const schema = z.object({
+  resume: z.object({}).passthrough(),
+  mode: z.enum(["general","jd","role"]).optional(),
+  jobDescription: z.string().optional(),
+  role: z.string().optional(),
+
+})
+
+//Rate Limiting 
+const rateLimitMap = new Map<string, {count:number, timestamp:number}>();
+
+function checkRateLimit(key: string, limit = 15, windows = 60_000){
+  const now = Date.now();
+
+  const record = rateLimitMap.get(key);
+  if(!record){
+    rateLimitMap.set(key , {count: 1, timestamp: now});
+    return true;
+  }
+  // reset window 
+  if(now - record.timestamp > windows){
+    rateLimitMap.set(key , {count: 1, timestamp: now});
+    return true;
+  }
+  if(record.count >= limit){
+    return false;
+  }
+  record.count += 1;
+  return true;
+}
 
 /* ================= UTIL ================= */
 
@@ -93,22 +127,47 @@ function normalizeResumeForAI(resume: any) {
 
 export async function POST(req: Request) {
   try {
+    // 🔥 Rate limit FIRST
+    const key = req.headers.get("x-forwarded-for") || "anon";
+
+    if (!checkRateLimit(key)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+        }),
+        { status: 429 }
+      );
+    }
+
+    // 🔥 Parse body
     const body = await req.json();
 
-    if (!body?.resume) {
-      return NextResponse.json(
-        { error: "No resume data provided" },
+    // 🔥 Validate with Zod
+    const parsedBody = schema.safeParse(body);
+
+    if (!parsedBody.success) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request body",
+        }),
         { status: 400 }
       );
     }
 
-    const mode = body?.mode || "general";
-    const jobDescription = mode === "jd" ? body?.jobDescription || "" : "";
-    const targetRole = mode === "role" ? body?.role || "general" : "general";
+    // ✅ USE VALIDATED DATA ONLY
+    const data = parsedBody.data;
+
+    const mode = data.mode || "general";
+    const jobDescription =
+      mode === "jd" ? data.jobDescription || "" : "";
+    const targetRole =
+      mode === "role" ? data.role || "general" : "general";
 
     console.log("🔥 JD:", jobDescription);
 
-    const normalizedResume = normalizeResumeForAI(body.resume);
+    const normalizedResume = normalizeResumeForAI(data.resume);
 
     const prompt = buildResumePrompt(
       normalizedResume,
@@ -130,7 +189,8 @@ RULES:
 
     /* ================= GENERATE ================= */
 
-    const generate = async () => {
+  const generate = async (retries = 3): Promise<string> => {
+    try {
       const res = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
@@ -140,7 +200,18 @@ RULES:
       });
 
       return res.response.text();
-    };
+
+    } catch (err: any) {
+
+      if (retries > 0 && err.message?.includes("503")) {
+        console.warn("⚠️ API overload, retrying...");
+        await new Promise(r => setTimeout(r, 1000));
+        return generate(retries - 1);
+      }
+
+      throw err;
+    }
+  };
 
     let text = await generate();
 
@@ -161,6 +232,11 @@ RULES:
       }
       return raw;
     };
+
+    text = text
+  .replace(/```json/g, "")
+  .replace(/```/g, "")
+  .trim();
 
     text = extractJSON(text);
 
@@ -193,7 +269,8 @@ RULES:
 
     const finalLatex = latexTemplate(safeData);
 
-    return NextResponse.json({ resume: finalLatex });
+    return NextResponse.json({success: true,data: { resume: finalLatex },
+    });
 
   } catch (error: any) {
     console.error("❌ API ERROR:", error);
